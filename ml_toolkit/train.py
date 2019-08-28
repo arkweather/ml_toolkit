@@ -10,7 +10,7 @@ import pickle
 import numpy as np
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.isotonic import IsotonicRegression
-from waf_code.learning import processing
+from ml_toolkit import processing
 
 
 def trainRegressionModel(model, train, target,  warm = False):

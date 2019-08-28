@@ -6,9 +6,9 @@ This utility script contains various functions related to k-fold cross-validatio
 """
 
 from __future__ import print_function
-from waf_code.learning import train as t
-from waf_code.learning import metrics
-from waf_code.learning import processing
+from ml_toolkit import train as t
+from ml_toolkit import metrics
+from ml_toolkit import processing
 from sklearn.base import clone 
 from copy import deepcopy
 from sklearn.isotonic import IsotonicRegression

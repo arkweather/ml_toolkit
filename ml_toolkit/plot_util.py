@@ -7,7 +7,7 @@ This utility script contains various functions to plot the results of the machin
 
 import matplotlib.pyplot as plt
 from PIL import Image
-from waf_code.learning import processing
+from ml_toolkit import processing
 try:    
     import cStringIO
 except:

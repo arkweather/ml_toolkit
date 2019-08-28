@@ -6,7 +6,7 @@ This utility script contains functions to help prepare data for training
 """
 
 from __future__ import print_function
-from waf_code.io import csv_io
+from ml_toolkit import csv_io
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 import pandas as pd
