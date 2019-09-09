@@ -84,9 +84,31 @@ def fillNaNs(data):
 			else: data[col].iloc[nan_index[i]] = 0.
 			
 	return data
+	
+	
+def balanceClasses(data, target, how = 'over', seed = 1):
+    """Balance the data classes for training
+    
+    :param data: A Pandas object with the data to balance
+    :param target: The name of the column to balance
+    :param how: 'over' for oversampling or 'under' for undersampling
+    :param seed: Seed to set the random state
+    :return: A Pandas object with the balanced dataset
+    """
+    
+    categories = data[target].unique()
+    lengths = [len(data.loc[data[target] == cat]) for cat in categories]
+    
+    sample_size = min(lengths) if how == 'under' else max(lengths)
+    
+    replace = True if how == 'over' else False
+    balanced_data = [data.loc[data[target] == cat].sample(n = sample_size, replace = replace, random_state = seed) for cat in categories]
+    balanced_data = pd.concat(balanced_data, ignore_index = True).sample(frac = 1, random_state = seed).reset_index(drop = True)
+    
+    return balanced_data   
 
 	
-def getTrainTest(data, frac = 0.75, random = False, date = None, sep = 1, seed = 1):
+def getTrainTest(data, frac = 0.75, date_index = 'date', random = False, date = None, sep = 1, seed = 1):
 	"""Split the data into training and testing data sets	
 	
 	:param data: A Pandas object with the data to split
@@ -103,10 +125,13 @@ def getTrainTest(data, frac = 0.75, random = False, date = None, sep = 1, seed =
 	:return: A tuple of Pandas objects (training set, test set)
 	"""
 	
+	# Must be at least one data point of seperation
+	if sep < 1: sep = 1
+	
 	# Delineate by date
-	if date != None:
-		train = data[data['date'] < date][:-sep].reset_index(drop=True)
-		test = data[data['date'] >= date].reset_index(drop=True)
+	if date != None:		
+		train = data[data[date_index] < date][:-sep].reset_index(drop=True)
+		test = data[data[date_index] >= date].reset_index(drop=True)
 		
 	# Otherwise, take fraction of dataset
 	else:

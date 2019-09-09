@@ -10,6 +10,7 @@ import pickle
 import numpy as np
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.isotonic import IsotonicRegression
+from sklearn.calibration import CalibratedClassifierCV
 from ml_toolkit import processing
 
 
@@ -27,7 +28,7 @@ def trainRegressionModel(model, train, target,  warm = False):
     return model
 	
 	
-def tuneParameters(model, param_dist, train, target, columns, n_iter = 10, train_pcs = True):
+def tuneParameters(model, param_dist, train, target, columns, n_iter = 10, train_pcs = True, metric = None):
 	"""Use a randomized search to find the best hyperparameters of a model
 
 	:param model: An instantiated machine learning model to tune
@@ -38,6 +39,7 @@ def tuneParameters(model, param_dist, train, target, columns, n_iter = 10, train
 	:param columns: List of variables to use as inputs
 	:param n_iter: Number of parameter settings that are sampled. Trades off runtime vs quality of the solution.
 	:param train_pcs: Set to True to train the model on PCs
+	:param metric: A callable method that takes the true values and predicted values as inputs and returns a single value
 	"""
 	
 	def report(results, n_top=3):
@@ -53,6 +55,8 @@ def tuneParameters(model, param_dist, train, target, columns, n_iter = 10, train
 		        print("Parameters: {0}".format(results['params'][candidate]))
 		        print("")
 	
+	if metric == None: metric = 'neg_mean_absolute_error'
+	
 	# Apply PCA to the training data 
 	if train_pcs:
 		_, train_data  = processing.transformPCA(train[columns])
@@ -61,7 +65,7 @@ def tuneParameters(model, param_dist, train, target, columns, n_iter = 10, train
 	else: train_data = train[columns]
 
     # Use a cross-validated randomized search to find the best hyperparameters
-	random_search = RandomizedSearchCV(model, param_distributions=param_dist, n_iter=n_iter, scoring = 'neg_mean_absolute_error', n_jobs = 1, cv=5)
+	random_search = RandomizedSearchCV(model, param_distributions=param_dist, n_iter=n_iter, scoring = metric, n_jobs = -1, cv=5)
 	random_search.fit(train_data, train[target])
 	report(random_search.cv_results_, n_top = 5)
 	return
@@ -71,7 +75,7 @@ def biasCorrection(model, tune, target):
 	
 	:param model: The pre-trained model to calibrate
 	:param tune: A Pandas dataframe with the data to use for calibration
-	:param target: Name of variable to try to predict
+	:param target: List of true values
 	:return: The calibrated model
 	"""
 	inputValues = model.predict(tune)
@@ -79,6 +83,21 @@ def biasCorrection(model, tune, target):
 	corrected_model.fit(inputValues, target.values)
 		
 	return corrected_model
+	
+	
+def classifierCorrection(model, tune, target):
+    """Calibrates the class probabilities of a classifier
+    
+    :param model: The pre-trained classifer to calibrate
+    :param tune: A Pandas dataframe with the data to use for calibration
+    :param target: List of true values
+    :return: The calibrated model
+    """
+    
+    calibrated_model = CalibratedClassifierCV(base_estimator = model, method = 'isotonic', cv = 'prefit')
+    calibrated_model.fit(tune, target.values)
+    
+    return calibrated_model
 	
 	
 def saveModel(model, name, outdir):

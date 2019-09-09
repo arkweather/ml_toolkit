@@ -31,7 +31,7 @@ def generateFolds(data, folds, holdout = 1):
 	return train_folds
 
 
-def trainCrossval(folds, target, columns, calibrate = False, base_model = None, train_pcs = False, p_model = None):
+def trainCrossval(folds, target, columns, calibrate = False, base_model = None, train_pcs = False, p_model = None, classifier = False, metric = None, proba = False):
     """Perform train or calibrate a regression model using k-fold cross validation 
     :param folds: List of training and validation data already broken into the desired number of folds
     :param target: Name of the target variable to try to predict
@@ -41,6 +41,9 @@ def trainCrossval(folds, target, columns, calibrate = False, base_model = None, 
                     If calibrate == True, this is the pre-trained machine learning model to calibrate
     :param train_pcs: Set to True to train the model using best PCA model, return best base model and pca model
     :param p_model: Best PCA model found from pre-trained machine learning model
+    :param classifier: Set to True if the supplied model is a classifier
+    :param metric: A callable method that takes the true values and predicted values as inputs and returns a single value
+    :param proba: If true, compute performance by the class probabilities
     :return: The trained model or calibration, and number of principal components, with the best validation set RMSE
     """
     
@@ -77,18 +80,19 @@ def trainCrossval(folds, target, columns, calibrate = False, base_model = None, 
             train = train[columns]
             val = val[columns]
         
-        if calibrate: model = t.biasCorrection(base_model, train, train_target)
+        if calibrate and classifier: model = t.classifierCorrection(base_model, train, train_target)
+        elif calibrate and not classifier: model = t.biasCorrection(base_model, train, train_target)
         else:
             base_model = deepcopy(base_model)
             model = t.trainRegressionModel(base_model, train, train_target)
         models.append(model)
         
         # Measure peformance
-        if calibrate: scores.append(metrics.measurePerformance(model, val, val_target, True, base_model))
-        else: scores.append(metrics.measurePerformance(model, val, val_target))
+        if calibrate: scores.append(metrics.measurePerformance(model, val, val_target, True, base_model, metric, classifier, proba))
+        else: scores.append(metrics.measurePerformance(model, val, val_target, False, None, metric, classifier, proba))
      
         # Compute bootstrap confidence intervals
-        if calibrate: 
+        if calibrate and not classifier: 
             base_predict = base_model.predict(val)
             predicts.append(model.predict(base_predict))
         
@@ -100,10 +104,10 @@ def trainCrossval(folds, target, columns, calibrate = False, base_model = None, 
     trues = [item for fold in trues for item in fold]
     val_interval = metrics.getConfidenceInterval(predicts, trues, 1000)
     	
-    if calibrate: print('\nCalibrated model mean MAE & 95% CI: ' + str(np.mean(scores)) + ' (' + str(val_interval[0]) + ' - ' + str(val_interval[1]) + ')')
-    else: print('\nModel mean MAE & 95% CI: ' + str(np.mean(scores)) + ' (' + str(val_interval[0]) + ' - ' + str(val_interval[1]) + ')')
+    if calibrate: print('\nCalibrated model mean score & 95% CI: ' + str(np.mean(scores)) + ' (' + str(val_interval[0]) + ' - ' + str(val_interval[1]) + ')')
+    else: print('\nModel mean score & 95% CI: ' + str(np.mean(scores)) + ' (' + str(val_interval[0]) + ' - ' + str(val_interval[1]) + ')')
     
-    print('Best model Validation MAE: ' + str(min(scores)))
+    print('Best model Validation score: ' + str(max(scores)))
     
     # Save the best model
     best_model = models[np.argmin(scores)]
